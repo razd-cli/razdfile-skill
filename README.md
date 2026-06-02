@@ -1,5 +1,7 @@
 # razdfile-skill
 
+[![skills.sh](https://img.shields.io/endpoint?url=https://www.skills.sh/api/badge/razd-cli/razdfile-skill)](https://www.skills.sh/razd-cli/razdfile-skill)
+
 Agent Skill for generating and validating Razdfile.yml configuration files.
 
 ## What is Razdfile.yml?
@@ -33,7 +35,7 @@ Ask your AI agent to create, edit, or validate a Razdfile.yml:
 ## Features
 
 - Generates valid Razdfile.yml with correct `version: "1"` field
-- Supports all three configuration modes: `dependencies`, `mise`, `devbox`
+- Enforces `dependencies` format with `using` field for mise or devbox
 - Validates mutual exclusion rules
 - Task definitions with deps, env, and commands
 - Templates for common project types (Node.js, Python, Go, etc.)
