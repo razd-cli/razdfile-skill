@@ -8,7 +8,7 @@ allowed-tools: Read Write Bash
 license: MIT
 metadata:
   author: razd-cli
-  version: "1.0"
+  version: "1.1"
   category: configuration
 ---
 
@@ -27,13 +27,11 @@ You are a Razdfile.yml configuration generator. Create valid `Razdfile.yml` file
 
 ## Supported Version
 
-Only `version: "1"` is valid. Always include it as the first line.
+Only `version: "1"` is valid. Always include it as the first field.
 
-## Three Configuration Modes
+## Only Valid Format: `dependencies`
 
-### Mode 1: `dependencies` (unified, recommended)
-
-Use when you want a tool-agnostic config that specifies WHAT you need, and razd resolves the provider.
+ALL Razdfile.yml files MUST use the `dependencies` section. The `mise` and `devbox` top-level sections are NOT allowed.
 
 ```yaml
 version: "1"
@@ -54,42 +52,19 @@ tasks:
       - npm run dev
 ```
 
-### Mode 2: `mise` (native config)
-
-Use when you want full mise-specific control.
+### With devbox provider
 
 ```yaml
 version: "1"
-mise:
-  tools:
-    node: "22"
-    python:
-      version: "3.11"
-      os: [linux, darwin]
-  env:
-    NODE_ENV: development
-  settings:
-    experimental: true
-tasks:
-  default:
-    cmds:
-      - npm run dev
-```
-
-### Mode 3: `devbox` (native config)
-
-Use when you want full devbox-specific control.
-
-```yaml
-version: "1"
-devbox:
-  packages:
+dependencies:
+  using: "devbox"         # REQUIRED: "mise" or "devbox"
+  ensure:
     - "nodejs@22"
-  env:
-    NODE_ENV: development
-  shell:
-    init_hook:
-      - echo "Welcome!"
+  extra:
+    devbox:
+      shell:
+        init_hook:
+          - echo "Welcome!"
 tasks:
   default:
     cmds:
@@ -98,12 +73,10 @@ tasks:
 
 ## Mutual Exclusion Rules
 
-- `dependencies` + `mise` = ERROR
-- `dependencies` + `devbox` = ERROR
-- `dependencies` alone = OK
-- `mise` alone = OK
-- `devbox` alone = OK
-- `mise` + `devbox` = OK (uncommon but allowed)
+- `dependencies` + `mise` section = ERROR (never use `mise:` as top-level key)
+- `dependencies` + `devbox` section = ERROR (never use `devbox:` as top-level key)
+- `dependencies` alone = OK (use `using` field to specify provider)
+- NEVER generate `mise:` or `devbox:` as top-level sections
 
 ## Generation Rules
 
@@ -119,8 +92,8 @@ Then IMMEDIATELY generate the Razdfile.yml. DO NOT ask for more details.
 ### Fast Path Examples
 
 - "Create a Razdfile for a Node.js project" → generate with `dependencies.using: mise, ensure: [node@22, pnpm@latest]`
-- "Razdfile for Python with devbox" → generate with `dependencies.using: devbox`
-- "My Go project needs task runner" → generate with mise + go + task
+- "Razdfile for Python with devbox" → generate with `dependencies.using: devbox, ensure: [python@3.11]`
+- "My Go project needs task runner" → generate with `dependencies.using: mise, ensure: [go@1.23, task@latest]`
 
 ### Slow Path
 
@@ -136,11 +109,13 @@ Only if the user says something very vague like "create a Razdfile" without any 
 When generating or reviewing a Razdfile.yml, enforce these rules:
 
 1. **`version` is ALWAYS `"1"`** — first field, required
-2. **`dependencies.using` is required** when `dependencies` section is present — must be `"mise"` or `"devbox"`
-3. **`dependencies.ensure` format** — each entry must match `tool@version` (e.g., `node@22`, `go@1.21`, `pnpm@latest`)
-4. **No `dependencies` + `mise`** — mutually exclusive
-5. **No `dependencies` + `devbox`** — mutually exclusive
-6. **At least one content section** — `tasks`, `mise`, `devbox`, or `dependencies` must be present
+2. **Always use `dependencies` section** — never `mise:` or `devbox:` as top-level keys
+3. **`dependencies.using` is required** — must be `"mise"` or `"devbox"`
+4. **`dependencies.ensure` format** — each entry must match `tool@version` (e.g., `node@22`, `go@1.21`, `pnpm@latest`)
+5. **No `dependencies` + `mise` section** — mutually exclusive
+6. **No `dependencies` + `devbox` section** — mutually exclusive
+7. **At least one content section** — `tasks` or `dependencies` must be present
+8. **Use `extra` for provider-specific config** — mise env/settings go in `dependencies.extra.mise`, devbox shell/scripts go in `dependencies.extra.devbox`
 
 ## Task Reference
 
@@ -205,7 +180,7 @@ Always use `Razdfile.yml` unless the user specifies otherwise.
 
 ## Templates
 
-### Node.js project (mise, dependencies format)
+### Node.js project (mise)
 
 ```yaml
 version: "1"
@@ -238,16 +213,19 @@ tasks:
       - pnpm test
 ```
 
-### Python project (mise, native format)
+### Python project (mise)
 
 ```yaml
 version: "1"
-mise:
-  tools:
-    python: "3.11"
-    task: "latest"
-  env:
-    PYTHONPATH: "."
+dependencies:
+  using: "mise"
+  ensure:
+    - "python@3.11"
+    - "task@latest"
+  extra:
+    mise:
+      env:
+        PYTHONPATH: "."
 tasks:
   default:
     desc: "Set up and run"
@@ -268,14 +246,15 @@ tasks:
       - pytest
 ```
 
-### Go project (mise, native format)
+### Go project (mise)
 
 ```yaml
 version: "1"
-mise:
-  tools:
-    go: "1.23"
-    task: "latest"
+dependencies:
+  using: "mise"
+  ensure:
+    - "go@1.23"
+    - "task@latest"
 tasks:
   default:
     desc: "Build and run"
@@ -296,7 +275,7 @@ tasks:
       - go fmt ./...
 ```
 
-### Devbox project (dependencies format)
+### Devbox project
 
 ```yaml
 version: "1"
@@ -325,25 +304,33 @@ tasks:
       - npm run dev
 ```
 
-### Devbox project (native format)
+### Ruby project (mise)
 
 ```yaml
 version: "1"
-devbox:
-  packages:
-    - "nodejs@22"
-  env:
-    NODE_ENV: development
-  shell:
-    init_hook:
-      - echo "Welcome!"
+dependencies:
+  using: "mise"
+  ensure:
+    - "ruby@3.3"
+    - "task@latest"
 tasks:
   default:
+    desc: "Set up and run"
     cmds:
-      - npm run dev
+      - task: install
+      - task: dev
   install:
+    desc: "Install gems"
     cmds:
-      - npm install
+      - bundle install
+  dev:
+    desc: "Start development server"
+    cmds:
+      - rackup app.ru -p 9292
+  test:
+    desc: "Run tests"
+    cmds:
+      - bundle exec rspec
 ```
 
 ## Modifying Existing Files
@@ -351,27 +338,53 @@ tasks:
 When the user asks to modify an existing Razdfile.yml:
 
 1. Read the current file
-2. Understand the configuration mode (dependencies, mise, or devbox)
+2. If it uses `mise:` or `devbox:` top-level sections, convert to `dependencies` format
 3. Apply requested changes
 4. Validate the result against the rules above
 5. Never remove `version: "1"` or change it
 6. Preserve the structure and comments
 
 Common modifications:
-- "Add python to dependencies" → add to `ensure` or `mise.tools`
-- "Switch from mise to devbox" → rewrite using `dependencies` with `using: devbox`
+- "Add python to dependencies" → add to `dependencies.ensure`
+- "Switch from mise to devbox" → change `dependencies.using` to `"devbox"`, adjust `ensure` format
 - "Add a build task" → add entry under `tasks`
-- "Add environment variable" → add to `env` or `dependencies.extra`
+- "Add environment variable" → add to `dependencies.extra.mise.env` or `dependencies.extra.devbox.env`
+
+## Converting Legacy Formats
+
+If an existing Razdfile uses `mise:` or `devbox:` as top-level sections, convert it:
+
+**Before (invalid):**
+```yaml
+version: "1"
+mise:
+  tools:
+    node: "22"
+tasks:
+  dev: npm run dev
+```
+
+**After (valid):**
+```yaml
+version: "1"
+dependencies:
+  using: "mise"
+  ensure:
+    - "node@22"
+tasks:
+  dev: npm run dev
+```
 
 ## Validation Checklist
 
 Before outputting any Razdfile.yml, verify:
 
 - [ ] `version: "1"` is present as the first field
-- [ ] At least one content section exists (tasks, mise, devbox, dependencies)
-- [ ] If `dependencies` is present, `using` field exists with value "mise" or "devbox"
-- [ ] No `dependencies` + `mise` combination
-- [ ] No `dependencies` + `devbox` combination
+- [ ] `dependencies` section is present with `using` field
+- [ ] `using` value is `"mise"` or `"devbox"`
+- [ ] No `mise:` top-level section (use `dependencies.extra.mise` instead)
+- [ ] No `devbox:` top-level section (use `dependencies.extra.devbox` instead)
 - [ ] All `ensure` entries follow `tool@version` format
+- [ ] At least one content section exists (tasks or dependencies with tasks)
 - [ ] Task names are valid YAML identifiers
 - [ ] `cmds` entries are strings or objects with `cmd`/`task` keys
